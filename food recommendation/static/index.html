@@ -1,0 +1,101 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Food Delivery Analytics & Recommender</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+<style>
+:root{--r:#e23744;--bg:#f4f5f7;--m:#6b7280}*{box-sizing:border-box}
+body{margin:0;font-family:Segoe UI,system-ui,Arial;background:var(--bg);color:#1c1c1c}
+header{background:linear-gradient(90deg,#e23744,#ff6b4a);color:#fff;padding:12px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:19px}header small{display:block;opacity:.9;font-size:12px}
+nav button{background:#fff2;color:#fff;border:0;padding:8px 15px;margin-left:5px;border-radius:20px;cursor:pointer;font-size:14px}nav button.on{background:#fff;color:var(--r);font-weight:600}
+main{max-width:1250px;margin:18px auto;padding:0 20px}.tab{display:none}.tab.on{display:block}
+.card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 1px 6px #0001;margin-bottom:16px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}.kpis .card{margin:0}
+.kpi b{display:block;font-size:25px;color:var(--r)}.kpi span{color:var(--m);font-size:11px;letter-spacing:.6px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.grid .card{margin:0}.cw{position:relative;height:290px}
+h3{margin:0 0 4px;font-size:16px}.sub{color:var(--m);font-size:12px;margin:0 0 12px}
+input,select,button.go{padding:9px 12px;border:1px solid #ddd;border-radius:8px;margin:0 8px 8px 0;font-size:14px}button.go{background:var(--r);color:#fff;border:0;cursor:pointer}
+.banner{padding:10px 28px;font-size:14px;display:none}#err{background:#fee2e2;color:#991b1b}#demo{background:#fef3c7;color:#92400e}
+.rec{display:flex;gap:14px;align-items:center;padding:12px;border-bottom:1px solid #eee}
+.rank{background:var(--r);color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;flex:none}
+.rec .i{flex:1}.rec small,.m{color:var(--m)}.tag{background:#fde8ea;color:var(--r);padding:2px 9px;border-radius:10px;font-size:12px;margin-right:6px}
+.bar{height:6px;background:#eee;border-radius:3px;width:110px}.bar div{height:100%;background:var(--r);border-radius:3px}
+table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;font-size:13px}th{background:#fafafa;color:var(--m)}.best{background:#ecfdf5;font-weight:600}
+.empty{padding:30px;text-align:center;color:var(--m)}.ld{padding:40px;text-align:center;color:var(--m)}
+@media(max-width:850px){.kpis,.grid{grid-template-columns:1fr}}
+</style></head><body>
+<header><div><h1>🍽️ Food Delivery Analytics & Recommendation System</h1><small id="src">Loading data source…</small></div>
+<nav><button class="on" data-t="ov">Overview</button><button data-t="rc">Recommender</button><button data-t="cu">Customers</button><button data-t="md">Models</button><button data-t="dq">Data Quality</button></nav></header>
+<div class="banner" id="err"></div><div class="banner" id="demo">ℹ️ SYNTHETIC test data is loaded — these numbers are NOT from the Kaggle dataset. Put the real CSVs in <b>data/</b>.</div>
+<main>
+<section class="tab on" id="ov"><div class="kpis" id="kpis"><div class="ld">Loading…</div></div><div class="grid">
+<div class="card"><h3>Monthly Orders</h3><p class="sub">Number of orders placed each month</p><div class="cw"><canvas id="c1"></canvas></div></div>
+<div class="card"><h3>Monthly Revenue</h3><p class="sub">Sum of order amounts per month</p><div class="cw"><canvas id="c2"></canvas></div></div>
+<div class="card"><h3>Top 10 Restaurants</h3><p class="sub">By number of orders</p><div class="cw"><canvas id="c3"></canvas></div></div>
+<div class="card"><h3>Top Cuisines</h3><p class="sub">Share of orders</p><div class="cw"><canvas id="c4"></canvas></div></div>
+<div class="card"><h3>Orders by Day of Week</h3><p class="sub">Which weekdays are busiest</p><div class="cw"><canvas id="c5"></canvas></div></div>
+<div class="card"><h3>Top States</h3><p class="sub">By number of orders</p><div class="cw"><canvas id="c6"></canvas></div></div></div></section>
+<section class="tab" id="rc"><div class="card"><h3>Personalised Restaurant Recommendations</h3><p class="sub">Uses order history, cuisine, rating, popularity and city/state. Unknown IDs get cold-start (popular &amp; top-rated) results.</p>
+<input id="uid" list="ul" placeholder="User ID (pick or type)"><datalist id="ul"></datalist>
+<select id="cz"><option value="">All cuisines</option></select><select id="st"><option value="">All states</option></select><select id="ci"><option value="">All cities</option></select>
+<select id="nn"><option>5</option><option selected>10</option><option>20</option></select><button class="go" onclick="rec()">Recommend</button>
+<div id="meta"></div><div id="out"></div></div>
+<div class="card"><h3>Recommender Evaluation</h3><p class="sub" id="evn"></p><div id="ev"></div></div></section>
+<section class="tab" id="cu"><div class="grid"><div class="card"><h3>Customer Segments</h3><p class="sub" id="kn"></p><div class="cw"><canvas id="c7"></canvas></div></div>
+<div class="card"><h3>What each segment means</h3><div id="sd" class="m"></div></div></div>
+<div class="card" style="margin-top:16px"><h3>Segment Profile</h3><div style="overflow-x:auto"><table id="sg"></table></div></div></section>
+<section class="tab" id="md"><div class="card"><h3>Order-Value Prediction — Model Comparison</h3><p class="sub">Evaluated on a held-out 20% test set; lower MAE/RMSE and higher R² are better. "v2 setup" = previous version; "enhanced" = new features/target handling.</p><div style="overflow-x:auto"><table id="mt"></table></div></div>
+<div class="grid"><div class="card"><h3>Feature Importance</h3><p class="sub">Permutation importance, best model</p><div class="cw"><canvas id="c8"></canvas></div></div>
+<div class="card"><h3>Actual vs Predicted</h3><p class="sub">Best model, 150 random test orders (closer to diagonal = better)</p><div class="cw"><canvas id="c9"></canvas></div></div></div></section>
+<section class="tab" id="dq"><div class="card"><h3>Data Quality Report</h3><p class="sub">What the cleaning pipeline found and did</p><table id="dt"></table><h3 style="margin-top:18px">Column mapping applied</h3><ul id="cm" class="m"></ul></div></section>
+</main>
+<script>
+const API=location.port==='5000'?'':'http://127.0.0.1:5000',$=i=>document.getElementById(i),P=['#e23744','#f5a623','#4a90e2','#50b86c','#9b59b6','#16a085','#e67e22','#7f8c8d'];
+const N=v=>Number(v).toLocaleString(),pc=v=>(v*100).toFixed(2)+'%',hum=k=>k.replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());
+async function j(u){let r;try{r=await fetch(API+u)}catch{throw new Error('Cannot reach the backend. Run "python app.py" in the project folder and open http://127.0.0.1:5000')}
+ const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||('Server error '+r.status));return d}
+const showErr=m=>{$('err').innerHTML='⚠️ '+m;$('err').style.display='block'};
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button,.tab').forEach(e=>e.classList.remove('on'));b.classList.add('on');$(b.dataset.t).classList.add('on')});
+const ch=(id,type,o,l,x={})=>{if(!Object.keys(o||{}).length){$(id).parentElement.innerHTML='<div class="empty">No data available</div>';return}
+ return new Chart($(id),{type,data:{labels:Object.keys(o),datasets:[{label:l,data:Object.values(o),backgroundColor:type=='line'?'#e2374422':P,borderColor:'#e23744',fill:true,tension:.3,borderRadius:4}]},
+ options:{maintainAspectRatio:false,indexAxis:x.h?'y':'x',plugins:{legend:{display:type=='doughnut',position:'right'}},
+ scales:type=='doughnut'?{}:{x:{title:{display:!!x.x,text:x.x}},y:{beginAtZero:true,title:{display:!!x.y,text:x.y}}}}})};
+const KL={orders:'TOTAL ORDERS',revenue:'TOTAL REVENUE',avg_order_value:'AVG ORDER VALUE',customers:'ACTIVE CUSTOMERS',restaurants:'RESTAURANTS ORDERED FROM'};
+async function init(){let a;try{a=await j('/api/analytics')}catch(e){$('kpis').innerHTML='';return showErr(e.message)}
+ $('src').textContent=(a.demo?'⚠ SYNTHETIC DEMO — ':'✔ Real dataset: ')+a.quality.source+' · '+N(a.quality.orders_clean)+' clean orders';
+ if(a.demo)$('demo').style.display='block';
+ $('kpis').innerHTML=Object.entries(a.kpi).map(([k,v])=>`<div class="card kpi"><b>${N(v)}</b><span>${KL[k]||hum(k)}</span></div>`).join('');
+ ch('c1','line',a.monthly_orders,'Orders',{x:'Month',y:'Orders'});ch('c2','line',a.monthly_revenue,'Revenue',{x:'Month',y:'Revenue'});
+ ch('c3','bar',a.top_restaurants,'Orders',{h:1,x:'Orders'});ch('c4','doughnut',a.top_cuisines);ch('c5','bar',a.dow,'Orders',{x:'Day',y:'Orders'});
+ ch('c6','bar',a.top_states,'Orders',{x:'State',y:'Orders'});
+ // customers
+ const s=a.segments;$('kn').textContent=`K-Means (k=${a.k}, chosen by best silhouette score ${a.k_scores[a.k]}) on recency, frequency, spend, avg order value & restaurant variety.`;
+ new Chart($('c7'),{type:'doughnut',data:{labels:s.map(x=>x.segment),datasets:[{data:s.map(x=>x.customers),backgroundColor:P}]},options:{maintainAspectRatio:false,plugins:{legend:{position:'right'}}}});
+ $('sd').innerHTML=s.map(x=>`<p><b style="color:#1c1c1c">${x.segment}</b> — ${x.description}.<br>💡 ${x.action}</p>`).join('');
+ $('sg').innerHTML='<tr><th>Segment</th><th>Customers</th><th>Share</th><th>Days since last order</th><th>Orders</th><th>Total spend</th><th>Avg order</th><th>Restaurants tried</th><th>Top cuisine</th></tr>'+
+  s.map(x=>`<tr><td><b>${x.segment}</b></td><td>${N(x.customers)}</td><td>${x.share_pct}%</td><td>${x.recency}</td><td>${x.frequency}</td><td>${N(x.monetary)}</td><td>${N(x.aov)}</td><td>${x.variety}</td><td>${x.top_cuisine}</td></tr>`).join('');
+ // models
+ $('mt').innerHTML='<tr><th>Model</th><th>Setup</th><th>R²</th><th>MAE</th><th>RMSE</th></tr>'+a.models.map(m=>`<tr class="${m.model==a.best_model?'best':''}"><td>${m.model}${m.model==a.best_model?' ✅ best RMSE':''}</td><td>${m.setup}</td><td>${m.R2}</td><td>${N(m.MAE)}</td><td>${N(m.RMSE)}</td></tr>`).join('');
+ ch('c8','bar',a.importance,'Importance',{h:1,x:'Drop in R² when shuffled'});
+ new Chart($('c9'),{type:'scatter',data:{datasets:[{label:'orders',data:a.scatter,backgroundColor:'#e23744aa'}]},options:{maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Actual order value'}},y:{title:{display:true,text:'Predicted order value'}}},plugins:{legend:{display:false}}}});
+ // data quality
+ const q=a.quality;$('dt').innerHTML='<tr><th>Check</th><th>Result</th></tr>'+Object.entries(q).filter(([k,v])=>typeof v!=='object').map(([k,v])=>`<tr><td>${hum(k)}</td><td>${typeof v=='number'?N(v):v}</td></tr>`).join('');
+ $('cm').innerHTML=q.column_mapping.map(x=>`<li>${x}</li>`).join('');
+ // recommender eval
+ const e=a.recommender_eval;if(e.error){$('ev').innerHTML=`<div class="empty">${e.error}</div>`}else{
+  $('evn').textContent=`${e.protocol} Test users: ${e.users_test} (weights tuned on a separate ${e.users_tune}-user group).`;
+  const ks=e.ks,cols=ks.flatMap(k=>['precision','recall','ndcg'].map(m=>m+'@'+k)),best=Math.max(...Object.values(e.results).map(r=>r['ndcg@'+Math.max(...ks)]));
+  $('ev').innerHTML='<table><tr><th>Method</th>'+cols.map(c=>`<th>${c.replace('precision','Precision').replace('recall','Recall').replace('ndcg','NDCG')}</th>`).join('')+'</tr>'+
+   Object.entries(e.results).map(([n,r])=>`<tr class="${r['ndcg@'+Math.max(...ks)]==best?'best':''}"><td>${n}</td>${cols.map(c=>`<td>${pc(r[c])}</td>`).join('')}</tr>`).join('')+'</table>'+
+   `<p class="sub">Tuned weights: ${Object.entries(e.weights).map(([k,v])=>k+'='+v).join(', ')} (cf=collaborative, cu=cuisine, rt=rating, pp=popularity, lc=location)</p>`}
+ try{const f=await j('/api/filters');window.F=f;f.cuisines.forEach(c=>$('cz').innerHTML+=`<option>${c}</option>`);f.states.forEach(c=>$('st').innerHTML+=`<option>${c}</option>`);
+  (await j('/api/users')).forEach(u=>$('ul').innerHTML+=`<option value="${u}">`)}catch(e){showErr(e.message)}}
+$('st').onchange=()=>{$('ci').innerHTML='<option value="">All cities</option>';(F.cities[$('st').value]||Object.values(F.cities).flat().sort()).forEach(c=>$('ci').innerHTML+=`<option>${c}</option>`)};
+async function rec(){const u=$('uid').value.trim();if(!u){$('out').innerHTML='<div class="empty">Enter a user ID first.</div>';return}
+ $('out').innerHTML='<div class="ld">Finding restaurants…</div>';
+ try{const p=new URLSearchParams({n:$('nn').value,cuisine:$('cz').value,state:$('st').value,city:$('ci').value});const r=await j(`/api/recommend/${encodeURIComponent(u)}?${p}`);
+ $('meta').innerHTML=`<span class="tag">${r.segment}</span><span class="tag">${r.method}</span>${r.known_user?'':'<span class="m">User ID not found — showing popular, top-rated restaurants.</span>'}`;
+ $('out').innerHTML=r.recommendations.map((x,i)=>`<div class="rec"><div class="rank">${i+1}</div><div class="i"><b>${x.name}</b><br><small>${x.cuisine} · ${x.city}, ${x.state}${x.rating?' · ⭐ '+x.rating:''}</small><br><small>💡 ${x.reason}</small></div>
+ <div><small>match score</small><div class="bar"><div style="width:${Math.min(100,x.score*100)}%"></div></div></div></div>`).join('')||'<div class="empty">No restaurants match these filters.</div>'}
+ catch(e){$('out').innerHTML='';showErr(e.message)}}
+init();
+</script></body></html>
